@@ -27,19 +27,21 @@ class ProjectConfig:
     environment: Environment = Environment.LOCAL
     mount_point: str = '/content/drive/'
     base_path: Path = Path('./data')
-    raw_data_file: str = 'timesheet.xlsx'
-    processed_file: str = 'daily_stats.csv'
+    base_path_colab = "/content/drive/MyDrive/Colab Notebooks/data"
+    data_file: str = 'timesheet.xlsx'
 
     def __post_init(self):
         self._validate_paths()
 
+    def _validate_paths(self):
+        if self.environment == Environment.COLAB and not self.mount_point:
+            raise ValueError("Mount points обязательно для окружения колаб")
+        
     @property
-    def row_path(self) -> Path:
-        return self.base_path / 'raw' / self.raw_data_file
-    
-    @property
-    def processed_path(self) -> Path:
-        return self.base_path / 'processed' / self.processed_file
+    def data_path(self) -> Path:
+        if self.environment == Environment.COLAB:
+            return Path(self.base_path_colab)
+        return self.base_path / self.data_file
     
 
 RAW_COLUMNS = {'Неделя', 'Дата', 'С', 'По', 'Часы', 'Описание', 'NEW_Тип Активности'}
