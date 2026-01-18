@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from enum import Enum
 
 # Logging setting
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s',
-    force=True
-)
-logger = logging.getLogger(__name__)
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        force=True
+    )
+    logging.getLogger(__name__).info("Logging is configured.")
+
+logger = logging.getLogger("work_pattern_analyzer")
 
 class Environment(Enum):
     COLAB = 'colab'
@@ -30,7 +33,7 @@ class ProjectConfig:
     base_path_colab = "/content/drive/MyDrive/Colab Notebooks/data"
     data_file: str = 'timesheet.xlsx'
 
-    def __post_init(self):
+    def __post_init__(self):
         self._validate_paths()
 
     def _validate_paths(self):
@@ -40,7 +43,7 @@ class ProjectConfig:
     @property
     def data_path(self) -> Path:
         if self.environment == Environment.COLAB:
-            return Path(self.base_path_colab)
+            return Path(self.base_path_colab) / self.data_file
         return self.base_path / self.data_file
     
 
