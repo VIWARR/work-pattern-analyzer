@@ -52,7 +52,7 @@ class DataLoader:
         
         missing_columns = RAW_COLUMNS - set(df.columns)
         if missing_columns:
-            raise ValueError(f"Отсутствуют необходимые признаки: {missing.columns}")
+            raise ValueError(f"Отсутствуют необходимые признаки: {missing_columns}")
         
         duplicates = df.duplicated().sum()
         if duplicates > 0:
