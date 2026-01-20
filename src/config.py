@@ -48,6 +48,15 @@ class ProjectConfig:
     
 
 RAW_COLUMNS = {'Неделя', 'Дата', 'С', 'По', 'Часы', 'Описание', 'NEW_Тип Активности'}
+COLUMN_MAPPING = {
+    'Неделя':'week',
+    'Дата':'date',
+    'С':'start_time',
+    'По':'end_time',
+    'Часы':'duration_hours',
+    'Описание':'description',
+    'NEW_Тип Активности':'activity_type',
+}
 PROCESSED_COLUMNS = {'date', 'start_time', 'end_time', 'duration_hours', 'activity_type'}
 FEATURE_COLUMNS_REQUIRED = PROCESSED_COLUMNS | {'activity_category'}
 WEIGHTS = {'deep_work': 2.0, 'training': 1.5, 'meeting': 1.0, 'other': 0.5}
