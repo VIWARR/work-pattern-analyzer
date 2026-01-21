@@ -19,7 +19,7 @@ class DataPreprocesor:
         return df
 
     def _standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        return df.rename(columns=self.COLUMN_MAPPING)
+        return df.rename(columns=COLUMN_MAPPING)
     
     def _convert_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
         df['date'] = pd.to_datetime(df['date'], errors='coerce')
@@ -61,7 +61,7 @@ class ActivityClassifier:
         self.category_map = category_map
 
     def classify(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy
+        df = df.copy()
         df['activity_category'] = 'other'
         
         for category, value in self.category_map.items():
@@ -73,7 +73,7 @@ class ActivityClassifier:
     
     def _log_unmatched(self, df: pd.DataFrame) -> None:
         all_defined = set().union(*self.category_map.values())
-        unmatched = set(df['activity_type'].inique()) - all_defined
+        unmatched = set(df['activity_type'].unique()) - all_defined
 
         if unmatched:
             logger.warning(f"Активности категории Other: {unmatched}")
@@ -89,11 +89,11 @@ class FeatureEngineer:
     фокусируясь на глубине сессий и плотности концентрации.
     """
     def __init__(self, flow_category: str = 'deep_work',
-                 main_flow_duration: float = 1.0,
+                 min_flow_duration: float = 1.0,
                  overtime_threshold: int = 19,
                  productivity_weights: dict[str, float]= WEIGHTS):
         self.flow_category = flow_category
-        self.main_flow_duration = main_flow_duration
+        self.min_flow_duration = min_flow_duration
         self.overtime_threshold = overtime_threshold
         self.productivity_weights = productivity_weights
 
@@ -116,7 +116,7 @@ class FeatureEngineer:
         df['hour_end'] = df['end_time'].dt.hour
         df['time_start'] = df['start_time'].dt.hour + df['start_time'].dt.minute / 60
         df['time_end'] = df['end_time'].dt.hour + df['end_time'].dt.minute / 60
-        df['is_over_time'] = (df['hour_end'] >= self.overtime_threshold).astype(int)
+        df['is_overtime'] = (df['hour_end'] >= self.overtime_threshold).astype(int)
         df['month'] = df['date'].dt.month
 
         extracted_weeks = df['week'].str.extract(r'w(\d+)')
@@ -160,4 +160,86 @@ class FeatureEngineer:
             .fillna(0)
             * df['duration_hours']
         )
+        return df
+    
+
+class TimeAggregator:
+    """
+    Агрегатор временных метрик для анализа продуктивности.
+
+    Выполняет группировку данных по заданным временным интервалам 
+    и вычисляет суммарные показатели рабочего времени, 
+    а также распределение по категориям активностей.
+    """
+    def __init__(self):
+        self.default_aggregations = {
+            'duration_hours': 'sum',
+            'is_flow_session': 'sum',
+            'is_context_switch': 'sum',
+            'is_overtime': 'sum',
+            'activity_type': 'count',
+            'time_start': 'min',
+            'time_end': 'max',
+            'makers_hours': 'sum',
+            'productivity_score': 'sum'
+        }
+        self.default_renames = {
+            'duration_hours': 'total_hours',
+            'activity_type': 'sessions_count',
+            'time_start': 'start_hour',
+            'time_end': 'end_hour',
+            'makers_hours': 'makers_hours'
+        }
+
+    def aggregate_daily(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Агрегация по дням
+        daily = df.groupby('date').agg(self.default_aggregations)
+        daily = daily.rename(columns=self.default_renames)
+
+        # Агрегация по категориям активностей (часов)
+        category_hours = df.pivot_table(
+            index='date',
+            columns='activity_category',
+            values='duration_hours',
+            aggfunc='sum'
+        ).fillna(0)
+        category_hours.columns = [f'hours_{col}' for col in category_hours.columns]
+
+        # Агрегация по категориям активностей (сессии)
+        category_sessions = df.pivot_table(
+            index='date',
+            columns='activity_category',
+            values='activity_type',
+            aggfunc='count'
+        ).fillna(0)
+        category_sessions.columns = [f'sessions_{col}' for col in category_sessions.columns]
+
+        # Уникальные активности в день
+        unique_activities = df.groupby('date')['activity_type'].nunique().rename('unique_activities')
+
+        # Джоин данных
+        result = pd.concat([daily, category_hours, category_sessions], axis=1)
+        result['unique_activities'] = unique_activities
+        result = result.reset_index()
+        result = self._calculate_derived_metrics(result)
+        logger.info("Агрегация по дням завершена")
+        return result
+
+    def _calculate_derived_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Коэф. DeepWork: сколько DeepWork приходится на 1 час встреч и другой работы
+        df['deep_work_ratio'] = df['hours_deep_work'] / (
+            df['hours_meeting'] + df['hours_other']
+        ).replace(0, np.nan)
+
+        # Плотность фокуса: сколько качественного времени в 1 часе работы
+        df['focus_density'] = (df['deep_work_ratio'] /
+                                df['total_hours'].replace(0, np.nan))
+        
+        # Глубина сессии: средняя длительность одного блока
+        df['session_depth'] = (df['total_hours'] /
+                                df['sessions_count'].replace(0, np.nan))
+
+        # День недели
+        df['day_of_week'] = pd.to_datetime(df['date']).dt.day_name()
+
         return df
