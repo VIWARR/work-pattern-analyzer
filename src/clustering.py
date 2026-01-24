@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.cluster import KMeans
-from sklearn.discriminant_analysis import StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from sklearn.pipeline import Pipeline
 from sklearn.utils import resample
@@ -46,7 +46,7 @@ class OptimalKSelector:
     def select(self, X: pd.DataFrame, random_state: int = 42) -> int:
         metrics = self._preprocesed_k(X, random_state)
         metrics = metrics.sort_values(by='k').reset_index(drop=True)
-        best_k = metrics.loc[metrics['silhouette'].idmax(), 'k']
+        best_k = metrics.loc[metrics['silhouette'].idxmax(), 'k']
         best_sil = metrics['silhouette'].max()
 
         for i in range(len(metrics) - 1):
@@ -129,7 +129,7 @@ class BusinessLabeler:
 
     def label(self, profiles: pd.DataFrame) -> dict[int, str]:
         df = profiles.copy()
-        for col in self.features_weights:
+        for col in self.feature_weights:
             std = df[col].std(ddof=0)
             if std == 0 or np.isnan(std):
                 df[col + '_z'] = 0.0
@@ -138,8 +138,8 @@ class BusinessLabeler:
 
         df['score'] = sum(df[f"{col}_z"] * w for col, w in self.feature_weights.items())
 
-        best_cluster = df.loc[df['score'].idmax(), 'cluster']
-        worst_cluster = df.loc[df['score'].idmin(), 'cluster']
+        best_cluster = df.loc[df['score'].idxmax(), 'cluster']
+        worst_cluster = df.loc[df['score'].idxmin(), 'cluster']
         labels = {}
 
         for _, row in df.iterrows():
@@ -156,10 +156,11 @@ class BusinessLabeler:
                 label = 'Сбалансированный режим'
 
             labels[cid] = label
-            return labels
+        
+        return labels
 
 
-class CusteringStability:
+class ClusteringStability:
     """
     Валидирует надежность выделенных паттернов поведения.
     
@@ -184,5 +185,6 @@ class CusteringStability:
                 pipeline.named_steps['scaler'].transform(X_resampled),
                 labels
             )
-            scores.append(scores)
-            return float(np.mean(scores))
+            scores.append(score)
+            
+        return float(np.mean(scores))
