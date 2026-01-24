@@ -61,6 +61,7 @@ PROCESSED_COLUMNS = {'date', 'start_time', 'end_time', 'duration_hours', 'activi
 FEATURE_COLUMNS_REQUIRED = PROCESSED_COLUMNS | {'activity_category'}
 WEIGHTS = {'deep_work': 2.0, 'training': 1.5, 'meeting': 1.0, 'other': 0.5}
 CLUSTER_FEATURES = ['focus_density', 'session_depth']
+FEATURE_WEIGHTS = {'focus_density': 0.5, 'session_depth': 0.5}
 CATEGORY_MAP = {
     'deep_work': {
         'бизнес-анализ', 'прототипирование', 'методология (документация)',
